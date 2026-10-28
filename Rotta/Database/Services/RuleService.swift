@@ -11,7 +11,7 @@ import CloudKit
 class RuleService {
     private let privateDatabase: CKDatabase
 
-    init(container: CKContainer = .init(identifier: "iCloud.Rotta.CloudRotta")) {
+    init(container: CKContainer = .init(identifier: CloudKitConfig.containerIdentifier)) {
         privateDatabase = container.publicCloudDatabase
     }
 
@@ -25,7 +25,7 @@ class RuleService {
                 do {
                     let record = try result.1.get()
                     let rule = RuleModel(
-                        id: UUID(uuidString: record["id"] as? String ?? "") ?? UUID(),
+                        id: record.rottaUUID,
                         name: record["name"] as? String,
                         details: record["details"] as? String,
                         idFormula: UUID(uuidString: record["idFormula"] as? String ?? "")
@@ -46,7 +46,7 @@ class RuleService {
         do {
             let record = try await privateDatabase.record(for: recordID)
             return RuleModel(
-                id: UUID(uuidString: record["id"] as? String ?? "") ?? UUID(),
+                id: record.rottaUUID,
                 name: record["name"] as? String,
                 details: record["details"] as? String,
                 idFormula: UUID(uuidString: record["idFormula"] as? String ?? "")
@@ -67,7 +67,7 @@ class RuleService {
                 do {
                     let record = try result.1.get()
                     let rule = RuleModel(
-                        id: UUID(uuidString: record["id"] as? String ?? "") ?? UUID(),
+                        id: record.rottaUUID,
                         name: record["name"] as? String,
                         details: record["details"] as? String,
                         idFormula: UUID(uuidString: record["idFormula"] as? String ?? "")
@@ -84,9 +84,7 @@ class RuleService {
     }
 
     func add(name: String? = nil, details: String? = nil, idFormula: UUID? = nil) async {
-        let uuid = UUID().uuidString
-        let record = CKRecord(recordType: "Rule")
-        record["id"] = uuid
+        let record = CKRecord.rottaRecord(type: "Rule")
         if let name = name { record["name"] = name }
         if let details = details { record["details"] = details }
         if let idFormula = idFormula { record["idFormula"] = idFormula.uuidString }

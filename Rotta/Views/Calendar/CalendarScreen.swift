@@ -6,6 +6,7 @@
 import SwiftUI
 
 struct CalendarScreen: View {
+    let formulaName: String
     @State private var viewModel = CalendarViewModel()
 
     var body: some View {
@@ -22,8 +23,8 @@ struct CalendarScreen: View {
         }
         .scrollIndicators(.hidden)
         .background(Color.black)
-        .task {
-            await viewModel.loadAllEvents()
+        .task(id: formulaName) {
+            await viewModel.loadAllEvents(formulaName: formulaName)
         }
     }
 }

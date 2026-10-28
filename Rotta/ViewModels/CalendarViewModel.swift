@@ -60,9 +60,17 @@ final class CalendarViewModel {
         return !(eventsByDay[key]?.isEmpty ?? true)
     }
 
-    /// Carrega todos os eventos de uma vez e monta o cache por dia.
-    func loadAllEvents() async {
-        allEvents = await eventService.getAll()
+    /// Carrega os eventos da fórmula selecionada e monta o cache por dia.
+    func loadAllEvents(formulaName: String) async {
+        let formulas = await Database.shared.getAllFormulas()
+        guard let formula = formulas.first(where: { FormulaNames.matches($0.name, uiName: formulaName) }) else {
+            allEvents = []
+            eventsByDay = [:]
+            scheduleEvents = []
+            return
+        }
+
+        allEvents = await eventService.getByFormula(idFormula: formula.id)
 
         var grouped: [Date: [EventModel]] = [:]
         for event in allEvents {
@@ -70,10 +78,7 @@ final class CalendarViewModel {
             grouped[Self.utcCalendar.startOfDay(for: date), default: []].append(event)
         }
         eventsByDay = grouped
-
-        if scheduleEvents.isEmpty {
-            scheduleEvents = allEvents
-        }
+        scheduleEvents = allEvents
     }
 
     /// Ao tocar num dia, mostra a rodada inteira daquele evento.

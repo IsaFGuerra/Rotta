@@ -6,6 +6,7 @@
 import SwiftUI
 
 struct DriverListScreen: View {
+    let formulaName: String
     @State private var viewModel = DriverListViewModel()
 
     private let headerImages = [
@@ -32,7 +33,7 @@ struct DriverListScreen: View {
             }
         }
         .navigationTitle("Pilotos")
-        .task { await viewModel.load() }
+        .task(id: formulaName) { await viewModel.load(formulaName: formulaName) }
     }
 
     @ViewBuilder

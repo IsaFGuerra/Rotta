@@ -8,10 +8,14 @@
 import Foundation
 import CloudKit
 
+enum CloudKitConfig {
+    static let containerIdentifier = "iCloud.com.isadoraguerra.Rotta"
+}
+
 class Database {
     static var shared = Database()
     
-    private let container = CKContainer(identifier: "iCloud.Rotta.CloudRotta")
+    private let container = CKContainer(identifier: CloudKitConfig.containerIdentifier)
     private var privateDatabase: CKDatabase {
         return container.publicCloudDatabase
     }
@@ -37,7 +41,7 @@ class Database {
         return await formulaService.get(by: id)
     }
     
-    func addFormula(name: String, color: String) async {
+    func addFormula(name: String, color: String) async -> UUID? {
         await formulaService.add(name: name, color: color)
     }
     
@@ -54,8 +58,30 @@ class Database {
         return await driverService.getByScuderia(scuderiaId: scuderiaId)
     }
     
-    func addDriver(name: String, country: String, number: Int16, points: Int16, scuderia: String, idFormula: UUID, photo: String, scuderiaLogo: String, height: String, birthDate: Date, championship: String, details: String) async {
-        await driverService.add(name: name, country: country, number: number, points: Int16(points), scuderia: scuderia, idFormula: idFormula, photo: photo, scuderiaLogo: scuderiaLogo, height: height, birthDate: birthDate, championship: championship, details: details)
+    func addDriver(name: String, country: String, number: Int16, points: Int16, scuderia: String, idScuderia: UUID, idFormula: UUID, photo: String, scuderiaLogo: String, height: String, birthDate: Date, championship: String, details: String) async {
+        _ = await driverService.add(name: name, country: country, number: number, points: Int16(points), scuderia: scuderia, idScuderia: idScuderia, idFormula: idFormula, photo: photo, scuderiaLogo: scuderiaLogo, height: height, birthDate: birthDate, championship: championship, details: details)
+    }
+
+    func updateDriver(
+        id: UUID,
+        points: Int16? = nil,
+        number: Int16? = nil,
+        scuderia: String? = nil,
+        idScuderia: UUID? = nil,
+        scuderiaLogo: String? = nil
+    ) async {
+        await driverService.update(
+            id: id,
+            points: points,
+            number: number,
+            scuderia: scuderia,
+            idScuderia: idScuderia,
+            scuderiaLogo: scuderiaLogo
+        )
+    }
+
+    func findDriver(name: String, idFormula: UUID) async -> DriverModel? {
+        await driverService.find(name: name, idFormula: idFormula)
     }
     
     // MARK: - Scuderia Functions
@@ -71,8 +97,16 @@ class Database {
         return await scuderiaService.getByFormula(idFormula: idFormula)
     }
     
-    func addScuderia(name: String, logo: String, points: Double, historicPoints: Int16, idFormula: UUID, country: String, pole: Int16, victory: Int16, podium: Int16, details: String) async {
+    func addScuderia(name: String, logo: String, points: Double, historicPoints: Int16, idFormula: UUID, country: String, pole: Int16, victory: Int16, podium: Int16, details: String) async -> UUID? {
         await scuderiaService.add(name: name, logo: logo, points: points, historicPoints: historicPoints, idFormula: idFormula, country: country, pole: pole, victory: victory, podium: podium, details: details)
+    }
+
+    func updateScuderia(id: UUID, points: Double? = nil, historicPoints: Int16? = nil, pole: Int16? = nil, victory: Int16? = nil, podium: Int16? = nil) async {
+        await scuderiaService.update(id: id, points: points, historicPoints: historicPoints, pole: pole, victory: victory, podium: podium)
+    }
+
+    func findScuderia(name: String, idFormula: UUID) async -> ScuderiaModel? {
+        await scuderiaService.find(name: name, idFormula: idFormula)
     }
     
     // MARK: - Event Functions
@@ -93,7 +127,15 @@ class Database {
     }
     
     func addEvent(roundNumber: Int16, country: String, name: String, date: Date? = nil, startTime: String, endTime: String, idFormula: UUID? = nil) async {
-        await eventService.add(roundNumber: roundNumber, country: country, name: name, date: date, startTime: startTime, endTime: endTime, idFormula: idFormula)
+        _ = await eventService.add(roundNumber: roundNumber, country: country, name: name, date: date, startTime: startTime, endTime: endTime, idFormula: idFormula)
+    }
+
+    func updateEvent(id: UUID, country: String? = nil, date: Date? = nil, startTime: String? = nil, endTime: String? = nil) async {
+        await eventService.update(id: id, country: country, date: date, startTime: startTime, endTime: endTime)
+    }
+
+    func findEvent(roundNumber: Int16, name: String, idFormula: UUID) async -> EventModel? {
+        await eventService.find(roundNumber: roundNumber, name: name, idFormula: idFormula)
     }
     
     // MARK: - Car Functions
@@ -195,7 +237,7 @@ class Database {
     }
 
     func resetCloudKit() async {
-        let types = ["Formula", "Driver", "Scuderia", "Event", "Car", "Component", "Rule", "Glossary", "Track"]
+        let types = ["Formula", "Driver", "Scuderia", "Event", "Car", "Component", "Rule", "Glossary", "Track", CloudKitConfig.seedStateRecordType]
         await deleteAllRecords(of: types)
     }
 }

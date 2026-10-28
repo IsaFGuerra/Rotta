@@ -11,7 +11,7 @@ import CloudKit
 class FormulaService {
     private let privateDatabase: CKDatabase
 
-    init(container: CKContainer = .init(identifier: "iCloud.Rotta.CloudRotta")) {
+    init(container: CKContainer = .init(identifier: CloudKitConfig.containerIdentifier)) {
         privateDatabase = container.publicCloudDatabase
     }
 
@@ -25,7 +25,7 @@ class FormulaService {
                 do {
                     let record = try result.1.get()
                     let formula = FormulaModel(
-                        id: UUID(uuidString: record["id"] as? String ?? "") ?? UUID(),
+                        id: record.rottaUUID,
                         name: record["name"] as? String ?? "",
                         color: record["color"] as? String ?? ""
                     )
@@ -45,7 +45,7 @@ class FormulaService {
         do {
             let record = try await privateDatabase.record(for: recordID)
             return FormulaModel(
-                id: UUID(uuidString: record["id"] as? String ?? "") ?? UUID(),
+                id: record.rottaUUID,
                 name: record["name"] as? String ?? "",
                 color: record["color"] as? String ?? ""
             )
@@ -55,17 +55,17 @@ class FormulaService {
         }
     }
 
-    func add(name: String, color: String) async {
-        let uuid   = UUID().uuidString
-        let record = CKRecord(recordType: "Formula", recordID: CKRecord.ID(recordName: uuid))
-        record["id"] = uuid
+    func add(name: String, color: String) async -> UUID? {
+        let record = CKRecord.rottaRecord(type: "Formula")
         record["name"] = name
         record["color"] = color
         do {
             let saved = try await privateDatabase.save(record)
             print("Formula salva com sucesso: \(saved.recordID.recordName)")
+            return saved.rottaUUID
         } catch {
             print("Erro ao salvar Formula: \(error.localizedDescription)")
+            return nil
         }
     }
 }

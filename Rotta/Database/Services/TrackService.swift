@@ -11,7 +11,7 @@ import Foundation
 class TrackService {
     private let privateDatabase: CKDatabase
 
-    init(container: CKContainer = .init(identifier: "iCloud.Rotta.CloudRotta")) {
+    init(container: CKContainer = .init(identifier: CloudKitConfig.containerIdentifier)) {
         privateDatabase = container.publicCloudDatabase
     }
 
@@ -33,6 +33,7 @@ class TrackService {
                         as? [UUID] ?? []
 
                     let track = TrackModel(
+                        id: record.rottaUUID,
                         name: record["name"] as? String ?? "",
                         location: record["location"] as? String ?? "",
                         distance: record["distance"] as? Double ?? 0,
@@ -62,7 +63,7 @@ class TrackService {
                 ?? []
 
             return TrackModel(
-                id: UUID(uuidString: record["id"] as? String ?? "") ?? UUID(),
+                id: record.rottaUUID,
                 name: record["name"] as? String ?? "",
                 location: record["location"] as? String ?? "",
                 distance: record["distance"] as? Double ?? 0,
@@ -77,52 +78,14 @@ class TrackService {
     }
 
     func getByFormula(idFormula: UUID) async -> [TrackModel] {
-        var tracks: [TrackModel] = []
-        let predicate = NSPredicate(
-            format: "idFormula == %@",
-            idFormula.uuidString
-        )
-        let query = CKQuery(recordType: "Track", predicate: predicate)
-        do {
-            let results = try await privateDatabase.records(matching: query)
-            for result in results.matchResults {
-                do {
-                    let record = try result.1.get()
-
-                    let formulaData = record["idFormula"] as? Data
-                    let idsFormula =
-                        transformer.reverseTransformedValue(formulaData)
-                        as? [UUID] ?? []
-
-                    let track = TrackModel(
-                        id: UUID(uuidString: record.recordID.recordName)
-                            ?? UUID(),
-                        name: record["name"] as? String ?? "",
-                        location: record["location"] as? String ?? "",
-                        distance: record["distance"] as? Double ?? 0,
-                        idFormula: idsFormula
-                    )
-                    tracks.append(track)
-                } catch {
-                    print(
-                        "Erro ao processar record tracks: \(error.localizedDescription)"
-                    )
-                }
-            }
-        } catch {
-            print(
-                "Erro ao buscar tracks por Fórmula: \(error.localizedDescription)"
-            )
-        }
-        return tracks
+        let tracks = await getAll()
+        return tracks.filter { $0.idFormula?.contains(idFormula) == true }
     }
 
     func add(name: String, location: String, distance: Double, idFormula: [UUID])
         async
     {
-        let uuid = UUID().uuidString
-        let record = CKRecord(recordType: "Track")
-        record["id"] = uuid
+        let record = CKRecord.rottaRecord(type: "Track")
         record["name"] = name
         record["location"] = location
         record["distance"] = distance

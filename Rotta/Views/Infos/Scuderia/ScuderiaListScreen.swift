@@ -6,6 +6,7 @@
 import SwiftUI
 
 struct ScuderiaListScreen: View {
+    let formulaName: String
     @State private var viewModel = ScuderiaListViewModel()
 
     private let teamLogos = [
@@ -35,6 +36,6 @@ struct ScuderiaListScreen: View {
             }
         }
         .navigationTitle("Scuderias")
-        .task { await viewModel.load() }
+        .task(id: formulaName) { await viewModel.load(formulaName: formulaName) }
     }
 }

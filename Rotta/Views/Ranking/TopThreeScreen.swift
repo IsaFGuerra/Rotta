@@ -7,6 +7,7 @@ import SwiftUI
 
 /// Tela do segmento "Ranking": pódios de pilotos e scuderias.
 struct TopThreeScreen: View {
+    let formulaName: String
     @State private var viewModel = RankingViewModel()
 
     var body: some View {
@@ -37,9 +38,9 @@ struct TopThreeScreen: View {
         }
         .padding(.horizontal, 16)
         .padding(.top, 12)
-        .task {
-            await viewModel.loadDrivers()
-            await viewModel.loadScuderias()
+        .task(id: formulaName) {
+            await viewModel.loadDrivers(formulaName: formulaName)
+            await viewModel.loadScuderias(formulaName: formulaName)
         }
     }
 

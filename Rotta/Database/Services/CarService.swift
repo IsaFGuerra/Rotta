@@ -11,7 +11,7 @@ import CloudKit
 class CarService {
     private let privateDatabase: CKDatabase
 
-    init(container: CKContainer = .init(identifier: "iCloud.Rotta.CloudRotta")) {
+    init(container: CKContainer = .init(identifier: CloudKitConfig.containerIdentifier)) {
         privateDatabase = container.publicCloudDatabase
     }
 
@@ -26,7 +26,7 @@ class CarService {
                     let record = try result.1.get()
                     let idsComponents = record["idComponents"] as? [UUID] ?? []
                     let car = CarModel(
-                        id: UUID(uuidString: record["id"] as? String ?? "") ?? UUID(),
+                        id: record.rottaUUID,
                         idComponents: idsComponents,
                         idFormula: UUID(uuidString: record["idFormula"] as? String ?? "") ?? UUID(),
                         image: record["image"] as? String
@@ -48,7 +48,7 @@ class CarService {
             let record = try await privateDatabase.record(for: recordID)
             let idsComponents = record["idComponents"] as? [UUID] ?? []
             return CarModel(
-                id: UUID(uuidString: record["id"] as? String ?? "") ?? UUID(),
+                id: record.rottaUUID,
                 idComponents: idsComponents,
                 idFormula: UUID(uuidString: record["idFormula"] as? String ?? "") ?? UUID(),
                 image: record["image"] as? String
@@ -70,7 +70,7 @@ class CarService {
                     let record = try result.1.get()
                     let idsComponents = record["idComponents"] as? [UUID] ?? []
                     let car = CarModel(
-                        id: UUID(uuidString: record["id"] as? String ?? "") ?? UUID(),
+                        id: record.rottaUUID,
                         idComponents: idsComponents,
                         idFormula: UUID(uuidString: record["idFormula"] as? String ?? "") ?? UUID(),
                         image: record["image"] as? String
@@ -97,7 +97,7 @@ class CarService {
                     let record = try result.1.get()
                     
                     let car = CarModel(
-                        id: UUID(uuidString: record["id"] as? String ?? "") ?? UUID(),
+                        id: record.rottaUUID,
                         idComponents: record["idComponents"] as? [UUID] ?? [],
                         idFormula: UUID(uuidString: record["idFormula"] as? String ?? "") ?? UUID(),
                         image: record["image"] as? String
@@ -114,11 +114,9 @@ class CarService {
     }
 
     func add(idComponents: [UUID], idFormula: UUID, image: String? = nil) async {
-        let uuid = UUID().uuidString
-        let record = CKRecord(recordType: "Car")
-        record["id"] = uuid
+        let record = CKRecord.rottaRecord(type: "Car")
         record["idFormula"] = idFormula.uuidString
-        record["idComponents"] = idComponents.map{ $0.uuidString }
+        record["idComponents"] = idComponents.map { $0.uuidString }
         if let image = image { record["image"] = image }
         do {
             let saved = try await privateDatabase.save(record)

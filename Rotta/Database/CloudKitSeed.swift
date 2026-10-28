@@ -10,6 +10,10 @@ import CloudKit
 
 class CloudKitSeed {
     var database: Database
+    private var formulaIDs: [String: UUID] = [:]
+    private var seededTeams: [String: (id: UUID, name: String, logo: String)] = [:]
+    private var seededDriverCount = 0
+    private var seededEventCount = 0
     
     init(database: Database) {
         self.database = database
@@ -24,34 +28,27 @@ class CloudKitSeed {
         }
         
         await seedFormulas()
-        try? await Task.sleep(nanoseconds: 1_000_000_000)
-        
         await seedAllScuderias()
-        try? await Task.sleep(nanoseconds: 1_000_000_000)
-        
         await seedAllDrivers()
-        try? await Task.sleep(nanoseconds: 1_000_000_000)
-        
         await seedTracks()
-        try? await Task.sleep(nanoseconds: 1_000_000_000)
-        
         await seedGlossaryTerms()
-        try? await Task.sleep(nanoseconds: 1_000_000_000)
-        
         await seedAllRules()
-        
-        try? await Task.sleep(nanoseconds: 1_000_000_000)
-        
         await seedEvents()
-        
-        try? await Task.sleep(nanoseconds: 1_000_000_000)
-        
         await seedComponents()
-        
-        try? await Task.sleep(nanoseconds: 1_000_000_000)
-        
         await seedCars()
         
+        let scuderias = await database.getAllScuderias()
+        let drivers = await database.getAllDrivers()
+        let events = await database.getAllEvents()
+        let scuderiaCount = max(scuderias.count, seededTeams.count)
+        let driverCount = max(drivers.count, seededDriverCount)
+        let eventCount = max(events.count, seededEventCount)
+        if scuderiaCount == 0 || driverCount == 0 || eventCount == 0 {
+            print("Seed incompleto (scuderias: \(scuderiaCount), drivers: \(driverCount), events: \(eventCount)). SeedState NÃO será gravado.")
+            return
+        }
+        
+        await writeCloudKitSeedFlag()
         Self.markSeedAsCompleted()
         
         print("CloudKit database seed completed!")
@@ -61,26 +58,84 @@ class CloudKitSeed {
     
     private func isDatabaseAlreadySeeded() async -> Bool {
         print("Checking if database is already seeded...")
-        
-        if Self.isSeedCompleted() {
-            print("UserDefaults indicates database is seeded")
-            return true
-        }
-        
-        let formulas = await database.getAllFormulas()
-        if !formulas.isEmpty {
-            print("Found \(formulas.count) formulas in database - already seeded")
+
+        let scuderias = await database.getAllScuderias()
+        let drivers = await database.getAllDrivers()
+        let events = await database.getAllEvents()
+        let hasCoreData = !scuderias.isEmpty && !drivers.isEmpty && !events.isEmpty
+
+        if hasCoreData {
+            print("Scuderias, drivers e events já existem — seed completo")
+            await writeCloudKitSeedFlag()
             Self.markSeedAsCompleted()
             return true
         }
-        
-        print("Database appears to be empty - proceeding with seed")
+
+        if await readCloudKitSeedFlag() {
+            print("SeedState existe, mas o banco está incompleto. Continuando o seed...")
+            await deleteCloudKitSeedFlag()
+            Self.markSeedAsNotCompleted()
+        }
+
+        print("Database appears incomplete - proceeding with seed")
         return false
+    }
+
+    private func resolveF2ID() async -> UUID? {
+        if let cached = formulaIDs[FormulaNames.formula2] {
+            return cached
+        }
+
+        for attempt in 1...5 {
+            let formulas = await database.getAllFormulas()
+            if let formula = formulas.first(where: {
+                FormulaNames.matches($0.name, uiName: FormulaNames.formula2)
+            }) {
+                formulaIDs[FormulaNames.formula2] = formula.id
+                return formula.id
+            }
+            print("UUID de Fórmula 2 ainda não disponível (tentativa \(attempt)/5)")
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+        }
+        return nil
+    }
+
+    private func seedStateDatabase() -> CKDatabase {
+        CKContainer(identifier: CloudKitConfig.containerIdentifier).publicCloudDatabase
+    }
+
+    private func readCloudKitSeedFlag() async -> Bool {
+        do {
+            let record = try await seedStateDatabase().record(
+                for: CKRecord.ID(recordName: CloudKitConfig.seedStateRecordName)
+            )
+            if let flag = record["completed"] as? Int64 { return flag == 1 }
+            if let flag = record["completed"] as? Int { return flag == 1 }
+            if let flag = record["completed"] as? Bool { return flag }
+            return false
+        } catch {
+            return false
+        }
+    }
+
+    private func writeCloudKitSeedFlag() async {
+        let record = CKRecord(
+            recordType: CloudKitConfig.seedStateRecordType,
+            recordID: CKRecord.ID(recordName: CloudKitConfig.seedStateRecordName)
+        )
+        record["completed"] = 1
+        do {
+            _ = try await seedStateDatabase().save(record)
+            print("SeedState gravado no CloudKit")
+        } catch {
+            print("Erro ao gravar SeedState: \(error.localizedDescription)")
+        }
     }
     
     func forceSeedDatabase() async {
         print("Force seeding database...")
         Self.markSeedAsNotCompleted()
+        await deleteCloudKitSeedFlag()
         await seedDatabase()
     }
     
@@ -88,6 +143,7 @@ class CloudKitSeed {
         print("Resetting and seeding database...")
         
         Self.markSeedAsNotCompleted()
+        await deleteCloudKitSeedFlag()
         await seedDatabase()
     }
     
@@ -96,18 +152,29 @@ class CloudKitSeed {
         
         let existingFormulas = await database.getAllFormulas()
         if !existingFormulas.isEmpty {
-            print("Formulas already exist, skipping...")
+            print("Formulas already exist, reusing IDs...")
+            for formula in existingFormulas {
+                formulaIDs[formula.name] = formula.id
+                if FormulaNames.matches(formula.name, uiName: FormulaNames.formula2) {
+                    formulaIDs[FormulaNames.formula2] = formula.id
+                }
+            }
             return
         }
         
         let formulas = [
-            //            ("Formula 1 Academy", "#FF0000"),
-            ("Formula 2", "#0000FF"),
-            //            ("Formula 3", "#00FF00"),
+            (FormulaNames.formula2, "#0000FF"),
+            (FormulaNames.formula3, "#00FF00"),
+            (FormulaNames.f1Academy, "#FF0000"),
         ]
         
         for formula in formulas {
-            await database.addFormula(name: formula.0, color: formula.1)
+            if let id = await database.addFormula(name: formula.0, color: formula.1) {
+                formulaIDs[formula.0] = id
+                print("Formula \(formula.0) id=\(id)")
+            } else {
+                print("Falha ao salvar Formula \(formula.0)")
+            }
         }
     }
     
@@ -117,13 +184,14 @@ class CloudKitSeed {
         // Verificar se já existem scuderias
         let existingScuderias = await database.getAllScuderias()
         if !existingScuderias.isEmpty {
-            print("Scuderias already exist, skipping...")
+            print("Scuderias already exist, reusing IDs...")
+            for team in existingScuderias {
+                seededTeams[team.name.lowercased()] = (id: team.id, name: team.name, logo: team.logo)
+            }
             return
         }
         
-        let formulas = await database.getAllFormulas()
-        
-        guard let f2Id = formulas.first(where: { $0.name == "Formula 2" })?.id else {
+        guard let f2Id = await resolveF2ID() else {
             print("Formulas not found after retries")
             return
         }
@@ -158,7 +226,7 @@ class CloudKitSeed {
         ]
         
         for team in f2Teams {
-            await database.addScuderia(
+            if let id = await database.addScuderia(
                 name: team.0,
                 logo: team.1,
                 points: team.2,
@@ -169,7 +237,11 @@ class CloudKitSeed {
                 victory: Int16(team.6),
                 podium: Int16(team.7),
                 details: team.8
-            )
+            ) {
+                seededTeams[team.0.lowercased()] = (id: id, name: team.0, logo: team.1)
+            } else {
+                print("Falha ao salvar Scuderia \(team.0)")
+            }
         }
         
         //        let f3Teams = [
@@ -202,8 +274,7 @@ class CloudKitSeed {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
         
-        let formulas = await database.getAllFormulas()
-        guard let f2Id = formulas.first(where: { $0.name == "Formula 2" })?.id else {
+        guard let f2Id = await resolveF2ID() else {
             print("Formulas not found")
             return
         }
@@ -275,25 +346,36 @@ class CloudKitSeed {
                 .replacingOccurrences(of: "ç", with: "c")
         }
         
+        let teams = await database.getAllScuderias()
+
         for driver in f2Drivers {
             let date = dateFormatter.date(from: driver.6) ?? Date()
-                let driverImage = imageName(for: driver.0)
-                let scuderiaImage = imageName(for: driver.4)
-                await database.addDriver(
-                    name: driver.0,
-                    country: driver.1,
-                    number: Int16(driver.2),
-                    points: Int16(driver.3),
-                    scuderia: driver.4,
-                    idFormula: f2Id,
-                    photo: driverImage,
-                    scuderiaLogo: scuderiaImage,
-                    height: driver.5,
-                    birthDate: date,
-                    championship: driver.7,
-                    details: driver.8
-                )
-            
+            let driverImage = imageName(for: driver.0)
+            let cachedTeam = seededTeams[driver.4.lowercased()]
+            let queriedTeam = teams.first(where: { scuderia in
+                scuderia.idFormula == f2Id
+                    && scuderia.name.compare(driver.4, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
+            }).map { (id: $0.id, name: $0.name, logo: $0.logo) }
+            guard let team = cachedTeam ?? queriedTeam else {
+                print("Scuderia não encontrada para \(driver.0) / \(driver.4)")
+                continue
+            }
+            await database.addDriver(
+                name: driver.0,
+                country: driver.1,
+                number: Int16(driver.2),
+                points: Int16(driver.3),
+                scuderia: team.name,
+                idScuderia: team.id,
+                idFormula: f2Id,
+                photo: driverImage,
+                scuderiaLogo: team.logo,
+                height: driver.5,
+                birthDate: date,
+                championship: driver.7,
+                details: driver.8
+            )
+            seededDriverCount += 1
         }
         
 
@@ -431,8 +513,7 @@ class CloudKitSeed {
             return
         }
         
-        let formulas = await database.getAllFormulas()
-        guard let f2Id = formulas.first(where: { $0.name == "Formula 2" })?.id else {
+        guard let f2Id = await resolveF2ID() else {
             print("Formulas not found")
             return
         }
@@ -512,9 +593,7 @@ class CloudKitSeed {
         dateFormatter.dateFormat = "yyyy-MM-dd"
         
         
-        let formulas = await database.getAllFormulas()
-        
-        guard let f2Id = formulas.first(where: { $0.name == "Formula 2" })?.id else {
+        guard let f2Id = await resolveF2ID() else {
             print("Formulas not found")
             return
         }
@@ -657,6 +736,7 @@ class CloudKitSeed {
                 endTime: event.5,
                 idFormula: f2Id
             )
+            seededEventCount += 1
         }
         
         //
@@ -761,6 +841,17 @@ class CloudKitSeed {
     /// Reseta a flag de seed no UserDefaults (útil para development)
     func resetSeedFlag() {
         Self.markSeedAsNotCompleted()
+        Task { await deleteCloudKitSeedFlag() }
+    }
+
+    private func deleteCloudKitSeedFlag() async {
+        do {
+            try await seedStateDatabase().deleteRecord(
+                withID: CKRecord.ID(recordName: CloudKitConfig.seedStateRecordName)
+            )
+        } catch {
+            print("Erro ao apagar SeedState: \(error.localizedDescription)")
+        }
     }
     
     // MARK: - UserDefaults Keys

@@ -11,7 +11,7 @@ import CloudKit
 class ComponentService {
     private let privateDatabase: CKDatabase
 
-    init(container: CKContainer = .init(identifier: "iCloud.Rotta.CloudRotta")) {
+    init(container: CKContainer = .init(identifier: CloudKitConfig.containerIdentifier)) {
         privateDatabase = container.publicCloudDatabase
     }
 
@@ -25,7 +25,7 @@ class ComponentService {
                 do {
                     let record = try result.1.get()
                     let component = ComponentModel(
-                        id: UUID(uuidString: record["id"] as? String ?? "") ?? UUID(),
+                        id: record.rottaUUID,
                         name: record["name"] as? String,
                         details: record["details"] as? String,
                         property: record["property"] as? String,
@@ -47,7 +47,7 @@ class ComponentService {
         do {
             let record = try await privateDatabase.record(for: recordID)
             return ComponentModel(
-                id: UUID(uuidString: record["id"] as? String ?? "") ?? UUID(),
+                id: record.rottaUUID,
                 name: record["name"] as? String,
                 details: record["details"] as? String,
                 property: record["property"] as? String,
@@ -61,9 +61,7 @@ class ComponentService {
     }
 
     func add(name: String? = nil, details: String? = nil, property: String? = nil, image: String? = nil) async {
-        let uuid = UUID().uuidString
-        let record = CKRecord(recordType: "Component")
-        record["id"] = uuid
+        let record = CKRecord.rottaRecord(type: "Component")
         if let name = name { record["name"] = name }
         if let details = details { record["details"] = details }
         if let property = property { record["property"] = property }

@@ -7,44 +7,51 @@ import SwiftUI
 
 /// Carrossel horizontal de cards que levam às sub-seções.
 struct InfosScreen: View {
+    let formulaName: String
     private enum Destination: Hashable {
         case glossary, scuderias, drivers, components
     }
 
     private struct Card: Identifiable {
-        let id = UUID()
+        let id: Destination
         let title: String
         let subtitle: String
         let imageResource: ImageResource
         let destination: Destination
     }
 
-    private let cards: [Card] = [
-        Card(
-            title: "Glossário",
-            subtitle: "Entenda os principais termos utilizados na Fórmula 2",
-            imageResource: .glossaryCategoryInfos,
-            destination: .glossary
-        ),
-        Card(
-            title: "Scuderias",
-            subtitle: "Conheça as scuderias da Fórmula 2",
-            imageResource: .componentsCategoryInfos,
-            destination: .scuderias
-        ),
-        Card(
-            title: "Pilotos",
-            subtitle: "Conheça os pilotos da Fórmula 2",
-            imageResource: .componentsCategoryInfos,
-            destination: .drivers
-        ),
-        Card(
-            title: "Peças",
-            subtitle: "Conheça as peças que compõem os carros da Fórmula 2",
-            imageResource: .componentsCategoryInfos,
-            destination: .components
-        )
-    ]
+    private var cards: [Card] {
+        [
+            Card(
+                id: .glossary,
+                title: "Glossário",
+                subtitle: "Entenda os principais termos utilizados na \(formulaName)",
+                imageResource: .glossaryCategoryInfos,
+                destination: .glossary
+            ),
+            Card(
+                id: .scuderias,
+                title: "Scuderias",
+                subtitle: "Conheça as scuderias da \(formulaName)",
+                imageResource: .componentsCategoryInfos,
+                destination: .scuderias
+            ),
+            Card(
+                id: .drivers,
+                title: "Pilotos",
+                subtitle: "Conheça os pilotos da \(formulaName)",
+                imageResource: .componentsCategoryInfos,
+                destination: .drivers
+            ),
+            Card(
+                id: .components,
+                title: "Peças",
+                subtitle: "Conheça as peças que compõem os carros da \(formulaName)",
+                imageResource: .componentsCategoryInfos,
+                destination: .components
+            )
+        ]
+    }
 
     var body: some View {
         GeometryReader { proxy in
@@ -78,8 +85,8 @@ struct InfosScreen: View {
     private func view(for destination: Destination) -> some View {
         switch destination {
         case .glossary: GlossaryListScreen()
-        case .scuderias: ScuderiaListScreen()
-        case .drivers: DriverListScreen()
+        case .scuderias: ScuderiaListScreen(formulaName: formulaName)
+        case .drivers: DriverListScreen(formulaName: formulaName)
         case .components: CarComponentListScreen()
         }
     }

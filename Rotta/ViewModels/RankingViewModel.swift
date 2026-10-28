@@ -14,11 +14,25 @@ final class RankingViewModel {
 
     private let database = Database.shared
 
-    func loadDrivers() async {
-        drivers = await database.getAllDrivers().sorted { $0.points > $1.points }
+    func loadDrivers(formulaName: String) async {
+        guard let formulaID = await formulaID(named: formulaName) else {
+            drivers = []
+            return
+        }
+        drivers = await database.getDriversByFormula(idFormula: formulaID)
+            .sorted { $0.points > $1.points }
     }
 
-    func loadScuderias() async {
-        scuderias = await database.getAllScuderias().sorted { $0.points > $1.points }
+    func loadScuderias(formulaName: String) async {
+        guard let formulaID = await formulaID(named: formulaName) else {
+            scuderias = []
+            return
+        }
+        scuderias = await database.getScuderiasByFormula(idFormula: formulaID)
+            .sorted { $0.points > $1.points }
+    }
+
+    private func formulaID(named name: String) async -> UUID? {
+        await database.getAllFormulas().first(where: { FormulaNames.matches($0.name, uiName: name) })?.id
     }
 }

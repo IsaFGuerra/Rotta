@@ -6,9 +6,9 @@
 import SwiftUI
 
 struct MainTabView: View {
-    private let formulas = ["Fórmula 2", "Fórmula 3", "F1 Academy"]
+    private let formulas = FormulaNames.all
 
-    @State private var selectedFormula = "Fórmula 2"
+    @State private var selectedFormula = FormulaNames.formula2
     @State private var selectedTab = 0
 
     var body: some View {
@@ -26,9 +26,9 @@ struct MainTabView: View {
 
             Group {
                 switch selectedTab {
-                case 0: CalendarScreen()
-                case 1: TopThreeScreen()
-                default: InfosScreen()
+                case 0: CalendarScreen(formulaName: selectedFormula)
+                case 1: TopThreeScreen(formulaName: selectedFormula)
+                default: InfosScreen(formulaName: selectedFormula)
                 }
             }
             .padding(.top, 8)

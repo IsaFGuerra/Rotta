@@ -11,7 +11,7 @@ import CloudKit
 class GlossaryService {
     private let privateDatabase: CKDatabase
 
-    init(container: CKContainer = .init(identifier: "iCloud.Rotta.CloudRotta")) {
+    init(container: CKContainer = .init(identifier: CloudKitConfig.containerIdentifier)) {
         privateDatabase = container.publicCloudDatabase
     }
 
@@ -25,7 +25,7 @@ class GlossaryService {
                 do {
                     let record = try result.1.get()
                     let term = GlossaryModel(
-                        id: UUID(uuidString: record["id"] as? String ?? "") ?? UUID(),
+                        id: record.rottaUUID,
                         title: record["title"] as? String ?? "",
                         details: record["details"] as? String ?? "",
                         subtitle: record["subtitle"] as? String ?? "",
@@ -47,7 +47,7 @@ class GlossaryService {
         do {
             let record = try await privateDatabase.record(for: recordID)
             return GlossaryModel(
-                id: UUID(uuidString: record["id"] as? String ?? "") ?? UUID(),
+                id: record.rottaUUID,
                 title: record["title"] as? String ?? "",
                 details: record["details"] as? String ?? "",
                 subtitle: record["subtitle"] as? String ?? "",
@@ -61,9 +61,7 @@ class GlossaryService {
     }
 
     func add(title: String? = nil, details: String? = nil, subtitle: String? = nil, image: String? = nil) async {
-        let record = CKRecord(recordType: "Glossary")
-        let uuid = UUID().uuidString
-        record["id"] = uuid
+        let record = CKRecord.rottaRecord(type: "Glossary")
         if let title { record["title"] = title }
         if let details { record["details"] = details }
         if let subtitle { record["subtitle"] = subtitle }

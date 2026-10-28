@@ -32,7 +32,7 @@ struct ScuderiaDetailScreen: View {
             StatRow(stats: [
                 Stat(title: "Poles", value: "\(scuderia.pole)"),
                 Stat(title: "Pódios", value: "\(scuderia.podium)"),
-                Stat(title: "Pontos", value: "\(scuderia.historicPoints)")
+                Stat(title: "Pts temporada", value: "\(Int(scuderia.points))")
             ])
 
             DetailTextBox {
